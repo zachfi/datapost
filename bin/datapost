@@ -1,0 +1,61 @@
+#! /usr/bin/env ruby
+
+begin
+  require 'json'
+  require 'net/http'
+  require 'rest_client'
+  require 'cri'
+rescue LoadError => e
+  puts "Unable to load library: #{e}"
+  exit 1
+end
+
+unless ARGV[0]
+  puts "need url as first argument"
+  exit 2
+end
+
+module DataPost
+  module_function
+
+  def post(url)
+    body = ''
+    body += STDIN.read
+    jsondata = JSON.parse(body)
+    begin
+      raise "jsondata is not of class Hash.  Is #{jsondata.class}" unless jsondata.is_a? Hash
+      RestClient.post(url, jsondata.to_json, :content_type => :json, :accept => :json )
+    rescue => e
+      puts "something broke:"
+      puts e.message
+      puts e.backtrace.inspect
+    end
+  end
+
+end
+
+command = Cri::Command.define do
+  name __FILE__
+  usage __FILE__ + ' [options]'
+  summary 'Post json data to a REST endpoint.'
+
+  flag   :h, :help,  'show help for this command' do |value, cmd|
+    puts cmd.help
+    exit 0
+  end
+  flag   :v, :verbose,  'Be less quiet'
+  option :u, :url,      'URL for REST endpoint', :argument => :required
+
+  run do |opts, args, cmd|
+    starttime = Time.now
+    puts "Initializing at #{starttime}" if opts[:verbose]
+
+    endpoint = opts[:url] || ARGV[0]
+    puts "posting to #{endpoint}" if opts[:verbose]
+
+    DataPost.post(endpoint)
+  end
+end
+
+command.run(ARGV)
+
